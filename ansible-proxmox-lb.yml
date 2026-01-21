@@ -1,0 +1,50 @@
+---
+- name: Setup HAProxy Load Balancer
+  hosts: loadbalancer
+  become: yes
+  vars:
+    lb_ip: "10.18.168.81"
+    # Replace these with your actual Nginx backend IPs
+    backend_nodes:
+      - { name: 'nginx_node_1', ip: '10.18.168.79' }
+      - { name: 'nginx_node_2', ip: '10.18.168.80' }
+
+  tasks:
+    - name: Install HAProxy
+      apt:
+        name: haproxy
+        state: present
+        update_cache: yes
+
+    - name: Configure /etc/hosts for local resolution
+      lineinfile:
+        path: /etc/hosts
+        line: "{{ lb_ip }} {{ item }}"
+        state: present
+      loop:
+        - ansiblelb.com
+        - ansiblestaging.com
+
+    - name: Deploy HAProxy Configuration
+      blockinfile:
+        path: /etc/haproxy/haproxy.cfg
+        block: |
+          frontend http_in
+              bind *:80
+              acl is_lb_com hdr(host) -i ansiblelb.com
+              acl is_staging_com hdr(host) -i ansiblestaging.com
+              
+              use_backend nginx_cluster if is_lb_com || is_staging_com
+
+          backend nginx_cluster
+              balance roundrobin
+              {% for node in backend_nodes %}
+              server {{ node.name }} {{ node.ip }}:80 check
+              {% endfor %}
+      notify: restart haproxy
+
+  handlers:
+    - name: restart haproxy
+      service:
+        name: haproxy
+        state: restarted
