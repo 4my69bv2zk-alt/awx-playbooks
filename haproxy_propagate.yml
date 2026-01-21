@@ -1,38 +1,44 @@
-- name: Propagate HAProxy Routing with Failover
+- name: Propagate HAProxy Routing with Access Control and Failover
   hosts: loadbalancer
   become: yes
   tasks:
-    - name: Configure HAProxy for Blue-Green with Failover
+    - name: Configure HAProxy ACLs and Failover
       blockinfile:
         path: /etc/haproxy/haproxy.cfg
         block: |
           frontend http_in
               bind *:80
               
-              # Identify which URL the user is typing
+              # Identify URLs
               acl is_lb_url hdr(host) -i ansiblelb.com
               acl is_staging_url hdr(host) -i ansiblestaging.com
 
               {% if deployment_state == 'green' %}
               # --- GREEN MODE (Production Release) ---
-              # Block staging as per requirement
               http-request deny if is_staging_url
-              # ansiblelb.com now points to AWX 4 (.79)
-              use_backend awx4_pool if is_lb_url
+              use_backend production_pool if is_lb_url
               {% else %}
-              # --- BLUE MODE (Development/Staging) ---
-              # ansiblelb.com points to AWX 3 (.80)
-              use_backend awx3_pool if is_lb_url
-              # ansiblestaging.com points to AWX 4 (.79)
-              use_backend awx4_pool if is_staging_url
+              # --- BLUE MODE (Testing) ---
+              use_backend production_pool if is_lb_url
+              use_backend staging_pool if is_staging_url
               {% endif %}
 
-          backend awx3_pool
-              server node_80 10.18.168.80:80 check
+          backend production_pool
+              option httpchk GET /
+              {% if deployment_state == 'green' %}
+              # Primary: AWX 4 (.79) | Backup: AWX 2 (.80)
+              server primary_node 10.18.168.79:80 check
+              server backup_node 10.18.168.80:80 check backup
+              {% else %}
+              # Blue Mode: Just use AWX 3 (.80)
+              server primary_node 10.18.168.80:80 check
+              {% endif %}
 
-          backend awx4_pool
-              server node_79 10.18.168.79:80 check
+          backend staging_pool
+              # Points to .79 during testing
+              server stage_node 10.18.168.79:80 check
       notify: restart haproxy
+
   handlers:
     - name: restart haproxy
       service:
