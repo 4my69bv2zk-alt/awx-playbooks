@@ -35,6 +35,7 @@
         src: "/etc/nginx/sites-available/{{ item }}"
         dest: "/etc/nginx/sites-enabled/{{ item }}"
         state: link
+        force: yes
       loop:
         - awx3
         - awx2
