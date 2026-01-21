@@ -25,25 +25,30 @@
         - ansiblelb.com
         - ansiblestaging.com
 
-    - name: Deploy HAProxy Configuration
+    - name: Deploy Path-Based HAProxy Configuration
       blockinfile:
         path: /etc/haproxy/haproxy.cfg
         block: |
           frontend http_in
               bind *:80
-              # Define ACLs based on the domain name accessed
-              acl is_prod hdr(host) -i ansiblelb.com
-              acl is_staging hdr(host) -i ansiblestaging.com
               
-              # Route to specific backends based on the domain
-              use_backend prod_backend if is_prod
-              use_backend staging_backend if is_staging
+              # Define paths
+              acl path_site1 path_beg /site1
+              acl path_site2 path_beg /site2
+              
+              # Route based on the path (regardless of domain used)
+              use_backend backend_79 if path_site1
+              use_backend backend_80 if path_site2
 
-          backend prod_backend
-              server nginx_prod {{ prod_node_ip }}:80 check
+          backend backend_79
+              # This strips the "/site1" prefix so Nginx sees a normal request
+              http-request set-path %[path,regsub(^/site1/?,/)]
+              server nginx1 10.18.168.79:80 check
 
-          backend staging_backend
-              server nginx_staging {{ staging_node_ip }}:80 check
+          backend backend_80
+              # This strips the "/site2" prefix so Nginx sees a normal request
+              http-request set-path %[path,regsub(^/site2/?,/)]
+              server nginx2 10.18.168.80:80 check
       notify: restart haproxy
 
   handlers:
