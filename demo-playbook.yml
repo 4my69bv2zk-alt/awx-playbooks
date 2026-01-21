@@ -1,27 +1,53 @@
 ---
-- name: Fix Nginx Ports on .80
+- name: Force Port Separation on .80
   hosts: 10.18.168.80
   become: yes
   tasks:
-    - name: Restore AWX 3 on Port 80
-      copy: # <--- Align this 'c' under the 'n' in 'name'
+    - name: Remove the default Nginx config that causes conflicts
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    - name: Configure Port 80 for AWX 3
+      copy:
         content: |
           server {
               listen 80;
+              server_name _;
               root /var/www/html;
               index index.html;
           }
-        dest: /etc/nginx/sites-enabled/awx3
+        dest: /etc/nginx/sites-available/awx3
 
-    - name: Keep AWX 2 on Port 8081
+    - name: Configure Port 8081 for AWX 2
       copy:
         content: |
           server {
               listen 8081;
+              server_name _;
               root /var/www/awx2;
               index index.html;
           }
-        dest: /etc/nginx/sites-enabled/awx2
+        dest: /etc/nginx/sites-available/awx2
+
+    - name: Enable the new configs
+      file:
+        src: "/etc/nginx/sites-available/{{ item }}"
+        dest: "/etc/nginx/sites-enabled/{{ item }}"
+        state: link
+      loop:
+        - awx3
+        - awx2
+
+    - name: Update AWX 3 Content
+      copy:
+        content: "<h1>Welcome to AWX 3</h1>"
+        dest: /var/www/html/index.html
+
+    - name: Update AWX 2 Content
+      copy:
+        content: "<h1>Welcome to AWX 2 (Emergency Failover)</h1>"
+        dest: /var/www/awx2/index.html
       notify: restart nginx
 
   handlers:
