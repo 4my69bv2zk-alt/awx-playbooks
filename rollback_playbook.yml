@@ -41,4 +41,5 @@
       loop:
         - nginx
         - haproxy
-      ignore_errors: yes
+      # This prevents the "Could not find service" error from stopping the job
+      failed_when: false
