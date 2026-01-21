@@ -14,15 +14,16 @@
               acl is_staging_url hdr(host) -i ansiblestaging.com
 
               {% if deployment_state == 'green' %}
-              # --- GREEN MODE LOGIC ---
-              # Block staging entirely
+              # --- GREEN MODE (Production Release) ---
+              # Block staging as per requirement
               http-request deny if is_staging_url
-              # Route production to AWX 3 (.80)
-              use_backend awx3_pool if is_lb_url
+              # ansiblelb.com now points to AWX 4 (.79)
+              use_backend awx4_pool if is_lb_url
               {% else %}
-              # --- BLUE MODE LOGIC ---
-              # Both URLs are accessible
+              # --- BLUE MODE (Development/Staging) ---
+              # ansiblelb.com points to AWX 3 (.80)
               use_backend awx3_pool if is_lb_url
+              # ansiblestaging.com points to AWX 4 (.79)
               use_backend awx4_pool if is_staging_url
               {% endif %}
 
@@ -32,7 +33,6 @@
           backend awx4_pool
               server node_79 10.18.168.79:80 check
       notify: restart haproxy
-
   handlers:
     - name: restart haproxy
       service:
