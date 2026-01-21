@@ -1,6 +1,10 @@
 ---
-- name: Restore AWX 3 on Port 80
-      copy:
+- name: Fix Nginx Ports on .80
+  hosts: 10.18.168.80
+  become: yes
+  tasks:
+    - name: Restore AWX 3 on Port 80
+      copy: # <--- Align this 'c' under the 'n' in 'name'
         content: |
           server {
               listen 80;
@@ -8,11 +12,6 @@
               index index.html;
           }
         dest: /etc/nginx/sites-enabled/awx3
-
-    - name: Ensure AWX 3 Content exists
-      copy:
-        content: "<h1>Welcome to AWX 3</h1>"
-        dest: /var/www/html/index.html
 
     - name: Keep AWX 2 on Port 8081
       copy:
@@ -24,3 +23,9 @@
           }
         dest: /etc/nginx/sites-enabled/awx2
       notify: restart nginx
+
+  handlers:
+    - name: restart nginx
+      service:
+        name: nginx
+        state: restarted
