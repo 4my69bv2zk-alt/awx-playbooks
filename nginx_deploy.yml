@@ -1,0 +1,8 @@
+- name: Deploy Nginx Content
+  hosts: all
+  become: yes
+  tasks:
+    - name: Update Index HTML
+      copy:
+        content: "<h1>Welcome to {{ html_content }}</h1>"
+        dest: /var/www/html/index.html
