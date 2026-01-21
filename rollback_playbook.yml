@@ -1,0 +1,44 @@
+---
+- name: Rollback to Original Network State (Load Balanced)
+  hosts: all
+  become: yes
+  tasks:
+    # --- RESTORE WEB CONTENT ---
+    - name: Restore AWX 1 on VM .80
+      copy:
+        content: "<h1>Welcome to AWX 1</h1>"
+        dest: /var/www/html/index.html
+      when: inventory_hostname == '10.18.168.80'
+
+    - name: Restore AWX 2 on VM .79
+      copy:
+        content: "<h1>Welcome to AWX 2</h1>"
+        dest: /var/www/html/index.html
+      when: inventory_hostname == '10.18.168.79'
+
+    # --- RESET HAPROXY TO LOAD BALANCED ---
+    - name: Reset HAProxy to Round Robin Load Balancing
+      blockinfile:
+        path: /etc/haproxy/haproxy.cfg
+        block: |
+          frontend http_in
+              bind *:80
+              default_backend production_cluster
+
+          backend production_cluster
+              balance roundrobin
+              option httpchk GET /
+              server node_79 10.18.168.79:80 check
+              server node_80 10.18.168.80:80 check
+      when: inventory_hostname == '10.18.168.81'
+      notify: restart_services
+
+  handlers:
+    - name: restart_services
+      service:
+        name: "{{ item }}"
+        state: restarted
+      loop:
+        - nginx
+        - haproxy
+      ignore_errors: yes
