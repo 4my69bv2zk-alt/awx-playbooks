@@ -1,0 +1,24 @@
+- name: Propagate HAProxy Routing
+  hosts: loadbalancer
+  become: yes
+  tasks:
+    - name: Configure HAProxy Blue-Green
+      blockinfile:
+        path: /etc/haproxy/haproxy.cfg
+        block: |
+          frontend http_in
+              bind *:80
+              acl is_staging hdr(host) -i ansiblestaging.com
+              use_backend staging_pool if is_staging
+              default_backend production_pool
+
+          backend production_pool
+              server prod_node {{ target_vm_ip }}:80 check
+
+          backend staging_pool
+              server stage_node {{ '10.18.168.79' if target_vm_ip == '10.18.168.80' else '10.18.168.80' }}:80 check
+      notify: restart haproxy
+
+  handlers:
+    - name: restart haproxy
+      service: { name: haproxy, state: restarted }
