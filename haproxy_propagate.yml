@@ -8,16 +8,29 @@
         block: |
           frontend http_in
               bind *:80
-              default_backend production_cluster
-
-          backend production_cluster
-              option httpchk GET /
-              # Primary: This is either .80 or .79 depending on the AWX Job
-              server primary_node {{ target_vm_ip }}:80 check
               
-              # Failover: Point to AWX2 (10.18.168.80) as a backup
-              # If you are currently live on .79 and it fails, it goes to .80
-              server backup_node 10.18.168.80:80 check backup
+              # Identify which URL the user is typing
+              acl is_lb_url hdr(host) -i ansiblelb.com
+              acl is_staging_url hdr(host) -i ansiblestaging.com
+
+              {% if deployment_state == 'green' %}
+              # --- GREEN MODE LOGIC ---
+              # Block staging entirely
+              http-request deny if is_staging_url
+              # Route production to AWX 3 (.80)
+              use_backend awx3_pool if is_lb_url
+              {% else %}
+              # --- BLUE MODE LOGIC ---
+              # Both URLs are accessible
+              use_backend awx3_pool if is_lb_url
+              use_backend awx4_pool if is_staging_url
+              {% endif %}
+
+          backend awx3_pool
+              server node_80 10.18.168.80:80 check
+
+          backend awx4_pool
+              server node_79 10.18.168.79:80 check
       notify: restart haproxy
 
   handlers:
