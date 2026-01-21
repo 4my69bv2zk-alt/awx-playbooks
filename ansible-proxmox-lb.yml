@@ -30,19 +30,19 @@
         block: |
           frontend http_in
               bind *:80
-              # Detect domains
+              # Define ACLs for each domain
               acl is_lb_com hdr(host) -i ansiblelb.com
               acl is_staging_com hdr(host) -i ansiblestaging.com
               
-              # Use the cluster for both domains
-              use_backend nginx_cluster if is_lb_com || is_staging_com
+              # Direct routing: Each domain goes to its own backend
+              use_backend backend_80 if is_lb_com
+              use_backend backend_79 if is_staging_com
 
-          backend nginx_cluster
-              # Change: We use 'first' or static assignment instead of 'roundrobin'
-              # This ensures .80 is always served unless it is down.
-              balance first
-              server nginx_node_1 {{ primary_node_ip }}:80 check
-              server nginx_node_2 {{ secondary_node_ip }}:80 check backup
+          backend backend_80
+              server nginx_node_80 {{ node_80_ip }}:80 check
+
+          backend backend_79
+              server nginx_node_79 {{ node_79_ip }}:80 check
       notify: restart haproxy
 
   handlers:
