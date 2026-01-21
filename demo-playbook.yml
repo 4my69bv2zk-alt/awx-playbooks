@@ -1,52 +1,33 @@
 ---
-- name: Sample AWX Playbook for Ubuntu Servers
-  hosts: all
+- name: Setup Multi-Version Nginx on .80
+  hosts: 10.18.168.80
   become: yes
+  
   tasks:
-    - name: Update apt cache
-      apt:
-        update_cache: yes
-
-    - name: Install Nginx
-      apt:
-        name: nginx
-        state: present
-
-    - name: Start Nginx service
-      service:
-        name: nginx
-        state: started
-        enabled: yes
-        
     - name: Create AWX 2 directory
-      file: path=/var/www/awx2 state=directory
+      file: 
+        path: /var/www/awx2 
+        state: directory
 
     - name: Deploy AWX 2 content
       copy:
         content: "<h1>Welcome to AWX 2 (Emergency Failover)</h1>"
-        dest: /var/www/html/index.html
+        dest: /var/www/awx2/index.html
 
     - name: Configure Nginx to listen on 8081 for AWX 2
       copy:
         content: |
           server {
               listen 8081;
-              root /var/www/html;
+              root /var/www/awx2;
               index index.html;
           }
         dest: /etc/nginx/sites-enabled/awx2
       notify: restart nginx
-      
-      handlers:
-          - name: restart nginx
-            service:
-              name: nginx
-              state: restarted
 
-    - name: Ensure proper permissions on web content
-      file:
-        path: /var/www/html
-        owner: www-data
-        group: www-data
-        mode: '0755'
-        recurse: yes
+  # FIX: Ensure this is indented exactly like 'tasks:' above
+  handlers:
+    - name: restart nginx
+      service:
+        name: nginx
+        state: restarted
