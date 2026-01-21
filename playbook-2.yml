@@ -20,7 +20,7 @@
 
     - name: Create a test HTML file
       copy:
-        content: "<html><body><h1>Version 2.0 - Green is Live</h1></body></html>"
+        content: "<html><body><h1>Welcome to {html_content}</h1></body></html>"
         dest: /var/www/html/index.html
 
     - name: Ensure proper permissions on web content
