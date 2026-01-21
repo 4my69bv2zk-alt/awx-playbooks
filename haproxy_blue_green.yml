@@ -1,0 +1,45 @@
+---
+- name: Setup HAProxy Blue-Green Load Balancer
+  hosts: loadbalancer
+  become: yes
+  vars:
+    # 'target_vm_ip' is the placeholder. 
+    # Its value will come from the AWX Job Template "Extra Vars".
+    lb_domain: "ansiblelb.com"
+    staging_domain: "ansiblestaging.com"
+
+  tasks:
+    - name: Install HAProxy
+      apt:
+        name: haproxy
+        state: present
+        update_cache: yes
+
+    - name: Configure /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        line: "10.18.168.81 {{ item }}"
+        state: present
+      loop:
+        - "{{ lb_domain }}"
+        - "{{ staging_domain }}"
+
+    - name: Deploy HAProxy Configuration with AWX Placeholders
+      blockinfile:
+        path: /etc/haproxy/haproxy.cfg
+        block: |
+          frontend http_in
+              bind *:80
+              # Blue-Green Logic
+              # 'target_vm_ip' is defined in your AWX Template Extra Vars
+              default_backend active_nodes
+
+          backend active_nodes
+              server nginx_active {{ target_vm_ip }}:80 check
+      notify: restart haproxy
+
+  handlers:
+    - name: restart haproxy
+      service:
+        name: haproxy
+        state: restarted
