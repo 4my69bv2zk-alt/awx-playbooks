@@ -36,7 +36,12 @@
           }
         dest: /etc/nginx/sites-enabled/awx2
       notify: restart nginx
-
+      
+      handlers:
+          - name: restart nginx
+            service:
+              name: nginx
+              state: restarted
 
     - name: Ensure proper permissions on web content
       file:
