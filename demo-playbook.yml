@@ -17,11 +17,26 @@
         name: nginx
         state: started
         enabled: yes
+        
+    - name: Create AWX 2 directory
+      file: path=/var/www/awx2 state=directory
 
-    - name: Create a test HTML file
+    - name: Deploy AWX 2 content
       copy:
-        content: "<html><body><h1>Hello from AWX!</h1></body></html>"
+        content: "<h1>Welcome to AWX 2 (Emergency Failover)</h1>"
         dest: /var/www/html/index.html
+
+    - name: Configure Nginx to listen on 8081 for AWX 2
+      copy:
+        content: |
+          server {
+              listen 8081;
+              root /var/www/html;
+              index index.html;
+          }
+        dest: /etc/nginx/sites-enabled/awx2
+      notify: restart nginx
+
 
     - name: Ensure proper permissions on web content
       file:
