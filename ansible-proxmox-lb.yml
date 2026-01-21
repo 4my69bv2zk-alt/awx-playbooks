@@ -4,10 +4,9 @@
   become: yes
   vars:
     lb_ip: "10.18.168.81"
-    # Replace these with your actual Nginx backend IPs
-    backend_nodes:
-      - { name: 'nginx_node_1', ip: '10.18.168.80' }
-      - { name: 'nginx_node_2', ip: '10.18.168.79' }
+    # Assigned IPs: .80 is the primary, .79 is the secondary/backup
+    primary_node_ip: "10.18.168.80"
+    secondary_node_ip: "10.18.168.79"
 
   tasks:
     - name: Install HAProxy
@@ -31,16 +30,19 @@
         block: |
           frontend http_in
               bind *:80
+              # Detect domains
               acl is_lb_com hdr(host) -i ansiblelb.com
               acl is_staging_com hdr(host) -i ansiblestaging.com
               
+              # Use the cluster for both domains
               use_backend nginx_cluster if is_lb_com || is_staging_com
 
           backend nginx_cluster
-              balance roundrobin
-              {% for node in backend_nodes %}
-              server {{ node.name }} {{ node.ip }}:80 check
-              {% endfor %}
+              # Change: We use 'first' or static assignment instead of 'roundrobin'
+              # This ensures .80 is always served unless it is down.
+              balance first
+              server nginx_node_1 {{ primary_node_ip }}:80 check
+              server nginx_node_2 {{ secondary_node_ip }}:80 check backup
       notify: restart haproxy
 
   handlers:
