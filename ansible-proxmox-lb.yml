@@ -4,9 +4,8 @@
   become: yes
   vars:
     lb_ip: "10.18.168.81"
-    # Assigned IPs: .80 is the primary, .79 is the secondary/backup
-    primary_node_ip: "10.18.168.80"
-    secondary_node_ip: "10.18.168.79"
+    node_80_ip: "10.18.168.80"
+    node_79_ip: "10.18.168.79"
 
   tasks:
     - name: Install HAProxy
