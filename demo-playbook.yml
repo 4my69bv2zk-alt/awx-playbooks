@@ -1,3 +1,4 @@
+---
 - name: Restore AWX 3 on Port 80
       copy:
         content: |
