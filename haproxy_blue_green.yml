@@ -24,18 +24,26 @@
         - "{{ lb_domain }}"
         - "{{ staging_domain }}"
 
-    - name: Deploy HAProxy Configuration with AWX Placeholders
+    - name: Deploy HAProxy Configuration with Auto-Staging
       blockinfile:
         path: /etc/haproxy/haproxy.cfg
         block: |
           frontend http_in
               bind *:80
-              # Blue-Green Logic
-              # 'target_vm_ip' is defined in your AWX Template Extra Vars
-              default_backend active_nodes
+              # Identify domains
+              acl is_staging hdr(host) -i ansiblestaging.com
+              
+              # Routing logic
+              use_backend staging_pool if is_staging
+              default_backend production_pool
 
-          backend active_nodes
-              server nginx_active {{ target_vm_ip }}:80 check
+          backend production_pool
+              # This is the IP you choose in AWX (e.g., .80)
+              server prod_node {{ target_vm_ip }}:80 check
+
+          backend staging_pool
+              # If target is .80, staging becomes .79. If target is .79, staging becomes .80.
+              server stage_node {{ '10.18.168.79' if target_vm_ip == '10.18.168.80' else '10.18.168.80' }}:80 check
       notify: restart haproxy
 
   handlers:
