@@ -43,7 +43,7 @@
           backend backend_79
               # This strips the "/site1" prefix so Nginx sees a normal request
               http-request set-path %[path,regsub(^/site1/?,/)]
-              server nginx1 10.18.168.79:80 check
+              server nginx1 10.18.168.79:81 check
 
           backend backend_80
               # This strips the "/site2" prefix so Nginx sees a normal request
