@@ -25,30 +25,30 @@
         - ansiblelb.com
         - ansiblestaging.com
 
-    - name: Deploy Path-Based HAProxy Configuration
+    - name: Deploy Path-Swapped HAProxy Configuration
       blockinfile:
         path: /etc/haproxy/haproxy.cfg
         block: |
           frontend http_in
               bind *:80
               
-              # Define paths
-              acl path_site1 path_beg /site1
-              acl path_site2 path_beg /site2
+              # Define path-based ACLs
+              acl is_site1 path_beg /site1
+              acl is_site2 path_beg /site2
               
-              # Route based on the path (regardless of domain used)
-              use_backend backend_79 if path_site1
-              use_backend backend_80 if path_site2
+              # Routing logic (Swapped per your requirement)
+              use_backend backend_site1 if is_site1
+              use_backend backend_site2 if is_site2
 
-          backend backend_79
-              # This strips the "/site1" prefix so Nginx sees a normal request
+          backend backend_site1
+              # This path (/site1) routes to .80
               http-request set-path %[path,regsub(^/site1/?,/)]
-              server nginx1 10.18.168.79:80 check
+              server nginx_80 10.18.168.80:80 check
 
-          backend backend_80
-              # This strips the "/site2" prefix so Nginx sees a normal request
+          backend backend_site2
+              # This path (/site2) routes to .79
               http-request set-path %[path,regsub(^/site2/?,/)]
-              server nginx2 10.18.168.80:80 check
+              server nginx_79 10.18.168.79:80 check
       notify: restart haproxy
 
   handlers:
