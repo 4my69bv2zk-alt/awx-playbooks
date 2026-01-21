@@ -31,16 +31,19 @@
         block: |
           frontend http_in
               bind *:80
-              acl is_lb_com hdr(host) -i ansiblelb.com
-              acl is_staging_com hdr(host) -i ansiblestaging.com
+              # Define ACLs based on the domain name accessed
+              acl is_prod hdr(host) -i ansiblelb.com
+              acl is_staging hdr(host) -i ansiblestaging.com
               
-              use_backend nginx_cluster if is_lb_com || is_staging_com
+              # Route to specific backends based on the domain
+              use_backend prod_backend if is_prod
+              use_backend staging_backend if is_staging
 
-          backend nginx_cluster
-              balance roundrobin
-              {% for node in backend_nodes %}
-              server {{ node.name }} {{ node.ip }}:80 check
-              {% endfor %}
+          backend prod_backend
+              server nginx_prod {{ prod_node_ip }}:80 check
+
+          backend staging_backend
+              server nginx_staging {{ staging_node_ip }}:80 check
       notify: restart haproxy
 
   handlers:
