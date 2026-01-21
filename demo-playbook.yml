@@ -1,20 +1,19 @@
----
-- name: Setup Multi-Version Nginx on .80
-  hosts: 10.18.168.80
-  become: yes
-  
-  tasks:
-    - name: Create AWX 2 directory
-      file: 
-        path: /var/www/awx2 
-        state: directory
-
-    - name: Deploy AWX 2 content
+- name: Restore AWX 3 on Port 80
       copy:
-        content: "<h1>Welcome to AWX 2 (Emergency Failover)</h1>"
-        dest: /var/www/awx2/index.html
+        content: |
+          server {
+              listen 80;
+              root /var/www/html;
+              index index.html;
+          }
+        dest: /etc/nginx/sites-enabled/awx3
 
-    - name: Configure Nginx to listen on 8081 for AWX 2
+    - name: Ensure AWX 3 Content exists
+      copy:
+        content: "<h1>Welcome to AWX 3</h1>"
+        dest: /var/www/html/index.html
+
+    - name: Keep AWX 2 on Port 8081
       copy:
         content: |
           server {
@@ -24,10 +23,3 @@
           }
         dest: /etc/nginx/sites-enabled/awx2
       notify: restart nginx
-
-  # FIX: Ensure this is indented exactly like 'tasks:' above
-  handlers:
-    - name: restart nginx
-      service:
-        name: nginx
-        state: restarted
