@@ -4,5 +4,5 @@
   tasks:
     - name: Update Index HTML
       copy:
-        content: "<h1>Welcome to {html_content}</h1>"
+        content: "<h1>Welcome to AWX 2</h1>"
         dest: /var/www/html/index.html
