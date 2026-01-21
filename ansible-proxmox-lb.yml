@@ -1,27 +1,21 @@
 ---
-- name: Setup HAProxy Load Balancer
+- name: Setup HAProxy Blue-Green Load Balancer
   hosts: loadbalancer
   become: yes
   vars:
-    lb_ip: "10.18.168.81"
-    node_80_ip: "10.18.168.80"
-    node_79_ip: "10.18.168.79"
+    # These are your fixed VM IPs
+    blue_ip: "10.18.168.80"
+    green_ip: "10.18.168.79"
+    
+    # 'active_color' is the placeholder that AWX will fill
+    # It defaults to blue if nothing is sent
+    active_color: "{{ deployment_color | default('blue') }}"
 
   tasks:
-    - name: Install HAProxy
-      apt:
-        name: haproxy
-        state: present
-        update_cache: yes
-
-    - name: Configure /etc/hosts for local resolution
-      lineinfile:
-        path: /etc/hosts
-        line: "{{ lb_ip }} {{ item }}"
-        state: present
-      loop:
-        - ansiblelb.com
-        - ansiblestaging.com
+    - name: Set target IP based on color
+      set_fact:
+        target_vm_ip: "{{ blue_ip if active_color == 'blue' else green_ip }}"
+        staging_vm_ip: "{{ green_ip if active_color == 'blue' else blue_ip }}"
 
     - name: Deploy HAProxy Configuration
       blockinfile:
@@ -29,19 +23,18 @@
         block: |
           frontend http_in
               bind *:80
-              # Define ACLs for each domain
-              acl is_lb_com hdr(host) -i ansiblelb.com
-              acl is_staging_com hdr(host) -i ansiblestaging.com
+              acl is_staging hdr(host) -i ansiblestaging.com
               
-              # Direct routing: Each domain goes to its own backend
-              use_backend backend_80 if is_lb_com
-              use_backend backend_79 if is_staging_com
+              use_backend staging_pool if is_staging
+              default_backend production_pool
 
-          backend backend_80
-              server nginx_node_80 {{ node_80_ip }}:80 check
+          backend production_pool
+              # Points to the 'active' color chosen in AWX
+              server prod_node {{ target_vm_ip }}:80 check
 
-          backend backend_79
-              server nginx_node_79 {{ node_79_ip }}:80 check
+          backend staging_pool
+              # Points to the 'standby' color for testing
+              server stage_node {{ staging_vm_ip }}:80 check
       notify: restart haproxy
 
   handlers:
