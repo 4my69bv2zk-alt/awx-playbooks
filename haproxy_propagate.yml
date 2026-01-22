@@ -23,16 +23,17 @@
               use_backend staging_pool if is_staging_url
               {% endif %}
 
+          # --- Updated Backend with Variables ---
           backend production_pool
               option httpchk GET /
               {% if deployment_state == 'green' %}
-              # Primary: AWX 4 (.79)
-              server primary_node 10.18.168.79:80 check
-              # Backup: AWX 2 (.80 Port 8081)
-              server backup_node 10.18.168.80:8081 check backup
+              # Primary: Active Node
+              server primary_node {{ primary_ip_green }}:{{ primary_port_green }} check
+              # Backup: Standby Node
+              server backup_node {{ backup_ip_green }}:{{ backup_port_green }} check backup
               {% else %}
-              # Blue Mode: AWX 3 (.80 Port 80)
-              server primary_node 10.18.168.80:80 check
+              # Blue Mode: Testing Node
+              server primary_node {{ primary_ip_blue }}:{{ primary_port_blue }} check
               {% endif %}
 
           backend staging_pool
